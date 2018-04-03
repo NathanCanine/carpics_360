@@ -418,6 +418,9 @@ var CarPicsSpinnerAPI = (function() {
         }
 
         this.displayGiven = function(index){
+            if (!nextImage.isReady) {
+                return;
+            }
             this.spinnerDiv.style.backgroundImage = "url('https://s3-us-west-2.amazonaws.com/cdn.carpics2p0.com/" + this.CurrentImage.sourceObject.src + "')";
             this.spinnerDiv.style.backgroundSize = "100% 100%";
             this.CurrentImage.HTMLElement.style.display = "none";
@@ -425,6 +428,12 @@ var CarPicsSpinnerAPI = (function() {
             this.CurrentImage = this.ActiveImages[index];
             this.CurrentImage.HTMLElement.style.display = "block";
             this.CurrentImage.hideHotspots();
+            previous.HTMLElement.style.display = "none";
+        }
+        this.insertPlaceholder = function(){
+            var element = document.getElementById(this.divId);
+            element.style.backgroundImage="url('https://s3-us-west-2.amazonaws.com/resources.carpics2p0.com/Rotation/checkerboard-backgrounds-wallpapers.jpg')";
+            element.style.repeat="repeat";
         }
 
         this.loadSpinner = function(){
