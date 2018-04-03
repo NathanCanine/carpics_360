@@ -64,7 +64,8 @@ var CarPicsSpinnerAPI = (function() {
         this.ActiveImages = [];
         xhttp.onreadystatechange=function(){
             if(this.readyState == 4 && this.status ==200){
-                thisObj.ExteriorData = JSON.parse(this.responseText);
+                var fullSpinner = JSON.parse(this.responseText)
+                thisObj.ExteriorData = fullSpinner.doorsClosed;
                 thisObj.ExteriorImages = new Array(thisObj.ExteriorData.length);
                 thisObj.ActiveImages = thisObj.ExteriorImages;
                 var isFirst=true;
@@ -72,25 +73,18 @@ var CarPicsSpinnerAPI = (function() {
                     thisObj.addImageAtCursor(isFirst, thisObj.ExteriorImages,Math.floor(thisObj.ExteriorImages.length*thisObj.SpinPosition));
                     isFirst=false;
                 }
-            }
-        }
-        xhttp.open("get", "https://feed.carpics2p0.com/rest/spinner/s3?dealer=" 
-            + config.sourceURL.dealer + "&vin=" + config.sourceURL.vin);
-        xhttp.send();
-        var xhttp = new XMLHttpRequest();
-        xhttp.onreadystatechange=function(){
-            if(this.readyState == 4 && this.status ==200){
-                thisObj.InteriorData = JSON.parse(this.responseText);
+                thisObj.InteriorData = fullSpinner.doorsOpen;
                 thisObj.InteriorImages = new Array(thisObj.InteriorData.length);
                 var isFirst=true;
                 for (var i = 0; i < thisObj.numberOfConnections; i++) {
                     thisObj.addImageAtCursor(isFirst,thisObj.InteriorImages,Math.floor(thisObj.InteriorImages.length*thisObj.SpinPosition),true);
                     isFirst=false;
                 }
+                thisObj.SlideShow = fullSpinner.slideshow;
+                thisObj.Panorama = fullSpinner.panorama;
             }
         }
-        xhttp.open("get", "https://feed.carpics2p0.com/rest/spinner/s3?dealer=" 
-            + config.sourceURL.dealer + "&vin=" + "ICTO");
+        xhttp.open("GET","https://feed.carpics2p0.com/rest/spinner/s3/fullSpinner?dealer="+config.sourceURL.dealer+"&vin=" + config.sourceURL.vin);
         xhttp.send();
         this.insertPlaceholder = function(){
             var element = document.getElementById(this.divId);
@@ -149,6 +143,20 @@ var CarPicsSpinnerAPI = (function() {
             buttonWrap.style.zIndex="22";
             buttonWrap.style.opacity="0.8";
             div.appendChild(buttonWrap);
+            var slideshowButton = document.createElement("button");
+            slideshowButton.style.height="28px";
+            slideshowButton.style.width="28px";
+            slideshowButton.style.border="none";
+            slideshowButton.style.borderRadius="4px";
+            slideshowButton.style.background="#fff";   // button original style - white background
+            slideshowButton.style.color="#000";    // button original style - black text color
+            slideshowButton.style.margin="4px 0";
+            slideshowButton.style.cursor="pointer";
+            slideshowButton.setAttribute("id", this.divId+"slideshowButton");
+            slideshowButton.style.fontSize="18px";
+            slideshowButton.style.fontWeight="600";
+            buttonWrap.appendChild(slideshowButton);
+            buttonWrap.appendChild(document.createElement("br"));
             var panoButton = document.createElement("button");
             panoButton.style.height="28px";
             panoButton.style.width="28px";
@@ -249,6 +257,7 @@ var CarPicsSpinnerAPI = (function() {
             document.getElementById(this.divId+"door_open_button").innerHTML="C";  
         }
         document.getElementById(this.divId + "panoButton").innerHTML = "P";
+        document.getElementById(this.divId + "slideshowButton").innerHTML = "S";
         /*
         * Chooses the next image to load by halfing the distance from the current cursor to the next cursor.
         * If no images need to load, move the loadcursor forward one until cursor has moved n times or has found
@@ -418,9 +427,6 @@ var CarPicsSpinnerAPI = (function() {
         }
 
         this.displayGiven = function(index){
-            if (!nextImage.isReady) {
-                return;
-            }
             this.spinnerDiv.style.backgroundImage = "url('https://s3-us-west-2.amazonaws.com/cdn.carpics2p0.com/" + this.CurrentImage.sourceObject.src + "')";
             this.spinnerDiv.style.backgroundSize = "100% 100%";
             this.CurrentImage.HTMLElement.style.display = "none";
@@ -428,7 +434,6 @@ var CarPicsSpinnerAPI = (function() {
             this.CurrentImage = this.ActiveImages[index];
             this.CurrentImage.HTMLElement.style.display = "block";
             this.CurrentImage.hideHotspots();
-            previous.HTMLElement.style.display = "none";
         }
         this.insertPlaceholder = function(){
             var element = document.getElementById(this.divId);
@@ -745,22 +750,45 @@ var CarPicsSpinnerAPI = (function() {
             var panoramaFunction = (function(thisObj) {
                 return function(baseEvent) {
                     if(thisObj.panoramaView){
-                        thisObj.panoramaDiv.parentElement.removeChild(thisObj.panoramaDiv);
+                        thisObj.panoramaDiv.style.display="none";
                         thisObj.CurrentImage.HTMLElement.style.display = "block";
                         thisObj.panoramaView=false;
                     } else {
                         if(typeof thisObj.panoramaDiv == "undefined"){
-                            thisObj.panoramaDiv = document.createElement("div");
+                            thisObj.panoramaDiv = document.createElement("iframe");
                             thisObj.panoramaDiv.setAttribute("id", thisObj.divId + "pano");
                             thisObj.panoramaDiv.style.width = "100%";
                             thisObj.panoramaDiv.style.height = "100%";
                             thisObj.spinnerDiv.appendChild(thisObj.panoramaDiv);
-                            pannellum.viewer(thisObj.divId + "pano", {
-                                "type": "equirectangular",
-                                "panorama": "http://resources.carpics2p0.com/Panorama/panorama.jpg"
-                            });
+                            thisObj.panoramaDiv.contentWindow.document.open();
+                            thisObj.panoramaDiv.contentWindow.document.write('<head>'+
+                                '<style>html,body{margin:0px}'+
+                                ".faicon{"+
+                                    "width:22px;"+
+                                    "height:22px;"+
+                                    "background: url('https://s3-us-west-2.amazonaws.com/resources.carpics2p0.com/Rotation/MarchDemo/carpics_360/blue_logo.png') 100% 100% no-repeat;"+
+                                    "background-size: cover;"+
+                                "}"+
+                                '</style>'+
+                                '</head><body>'+
+                                '<link rel="stylesheet" href="https://cdn.pannellum.org/2.3/pannellum.css"/>'+
+                                '<script type="text/javascript" src="https://cdn.pannellum.org/2.3/pannellum.js"></script>'+
+                                '<div id = "'+thisObj.divId + 'pano"></div>'+
+                                '<script>pannellum.viewer("'+thisObj.divId + 'pano", {'+
+                                '"type": "equirectangular",'+
+                                '"panorama":"https://s3-us-west-2.amazonaws.com/cdn.carpics2p0.com/' + thisObj.Panorama[0].src+'",'+
+                                '"hotSpots":[{'+
+                                    '"pitch": 90,'+
+                                    '"yaw": 0,'+
+                                    '"type": "info",'+ 
+                                    '"text": "Ding dong.",'+
+                                    '"cssClass":"faicon",'+
+                                    '}]'+
+                                '});</script>'+
+                                '<body>');
+                            thisObj.panoramaDiv.contentWindow.document.close();
                         } else {
-                            thisObj.spinnerDiv.appendChild(thisObj.panoramaDiv);
+                            thisObj.panoramaDiv.style.display="block";
                         }
                         thisObj.CurrentImage.HTMLElement.style.display = "none";
                         thisObj.panoramaView = true;
@@ -768,7 +796,83 @@ var CarPicsSpinnerAPI = (function() {
                 }
             })(this);
             document.getElementById(this.divId+"panoButton").addEventListener("click", panoramaFunction);
-            //document.getElementById(this.divId+"panoButton").addEventListener("touchstart", panoramaFunction);
+
+            var slideshowFunction = (function(thisObj){
+                return function (baseEvent, startSlide){
+                    var slide = startSlide || 0;
+                    var slideshow = document.createElement("div");
+                    slideshow.style.position="absolute";
+                    slideshow.style.width="100%";
+                    slideshow.style.height="100%";
+                    slideshow.style.zIndex="100";
+                    slideshow.style.top="0";
+                    slideshow.style.backgroundColor = "grey";
+                    var exit = document.createElement("div");
+                    exit.style.position="absolute";
+                    exit.style.top="1%";
+                    exit.style.right="1%";
+                    exit.style.background="rgba(255,255,255,0.65)";
+                    exit.style.fontSize="150%";
+                    exit.innerHTML="X";
+                    exit.style.zIndex="100";
+                    exit.onclick = function(){
+                        slideshow.parentElement.removeChild(slideshow);
+                    };
+                    slideshow.appendChild(exit);
+                    var image = document.createElement("img");
+                    image.src = "https://s3-us-west-2.amazonaws.com/cdn.carpics2p0.com/" + thisObj.SlideShow[slide].src;
+                    image.style.width="100%";
+                    image.style.height="100%";
+                    image.style.position="relative";
+                    slideshow.appendChild(image);
+                    var leftButton = document.createElement("div");
+                    leftButton.style.position="absolute";
+                    leftButton.style.top="50%";
+                    leftButton.style.left="3%";
+                    leftButton.style.background="rgba(255,255,255,0.65)";
+                    leftButton.style.transform = "translate(0px, -50%)";
+                    leftButton.style.cursor="pointer";
+                    leftButton.style.fontSize="300%";
+                    leftButton.style.zIndex = "100";
+                    leftButton.innerHTML="<";
+                    leftButton.onclick = function(){
+                        slide = (slide -1 + thisObj.SlideShow.length)%thisObj.SlideShow.length;
+                        image.parentElement.removeChild(image);
+                        image = document.createElement("img");
+                        image.src = "https://s3-us-west-2.amazonaws.com/cdn.carpics2p0.com/" + thisObj.SlideShow[slide].src;
+                        image.style.width="100%";
+                        image.style.height="100%";
+                        image.style.position="relative";
+                        image.src = "https://s3-us-west-2.amazonaws.com/cdn.carpics2p0.com/" + thisObj.SlideShow[slide].src;
+                        slideshow.appendChild(image);
+                    }
+                    var rightButton = document.createElement("div");
+                    rightButton.onclick = function(){
+                        slide = (slide +1 )%thisObj.SlideShow.length;
+                        image.parentElement.removeChild(image);
+                        image = document.createElement("img");
+                        image.src = "https://s3-us-west-2.amazonaws.com/cdn.carpics2p0.com/" + thisObj.SlideShow[slide].src;
+                        image.style.width="100%";
+                        image.style.height="100%";
+                        image.style.position="relative";
+                        image.src = "https://s3-us-west-2.amazonaws.com/cdn.carpics2p0.com/" + thisObj.SlideShow[slide].src;
+                        slideshow.appendChild(image);
+                    }
+                    rightButton.style.position="absolute";
+                    rightButton.style.top="50%";
+                    rightButton.style.right="3%";
+                    rightButton.style.zIndex = "100";
+                    rightButton.style.background="rgba(255,255,255,0.65)";
+                    rightButton.style.transform = "translate(0px, -50%)";
+                    rightButton.style.cursor="pointer";
+                    rightButton.style.fontSize="300%";
+                    rightButton.innerHTML=">";
+                    slideshow.appendChild(leftButton);
+                    slideshow.appendChild(rightButton);
+                    thisObj.spinnerDiv.appendChild(slideshow);
+                }
+            })(this)
+            document.getElementById(this.divId+"slideshowButton").addEventListener("click", slideshowFunction);
 
             this.spinToToggleDoors = function(thisObj, spinPosition, switched){
                 setTimeout(function(){
